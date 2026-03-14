@@ -24,6 +24,7 @@ class StacksView(Widget):
     BINDINGS = [
         Binding("r", "refresh", "Refresh"),
         Binding("e", "edit", "Edit"),
+        Binding("p", "pull_restart", "Pull & Redeploy"),
         Binding("i", "inspect", "View file"),
         Binding("d", "remove", "Remove"),
     ]
@@ -103,6 +104,28 @@ class StacksView(Widget):
         )
         if saved:
             self.action_refresh()
+
+    @work(exclusive=False)
+    async def action_pull_restart(self) -> None:
+        s = self._selected_stack()
+        if not s:
+            return
+        confirmed = await self.app.push_screen_wait(
+            ConfirmDialog(
+                f"Pull latest images and redeploy stack [bold]{s.name}[/]?\n\n"
+                "Services will be briefly restarted.",
+                title="Pull & Redeploy",
+            )
+        )
+        if not confirmed:
+            return
+        try:
+            self.notify(f"Pulling images and redeploying '{s.name}'…", timeout=15)
+            await self._client.redeploy_stack(s.id, self._endpoint_id, pull_image=True)
+            self.notify(f"Stack '{s.name}' redeployed with latest images", timeout=4)
+            self.action_refresh()
+        except PortainerAPIError as e:
+            self.notify(str(e), severity="error")
 
     @work(exclusive=False)
     async def action_inspect(self) -> None:

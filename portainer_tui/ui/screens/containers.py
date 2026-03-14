@@ -37,6 +37,7 @@ class ContainersView(Widget):
     BINDINGS = [
         Binding("r", "refresh", "Refresh"),
         Binding("e", "edit", "Edit"),
+        Binding("p", "pull_restart", "Pull & Restart"),
         Binding("s", "start", "Start"),
         Binding("S", "stop", "Stop"),
         Binding("R", "restart", "Restart"),
@@ -124,6 +125,71 @@ class ContainersView(Widget):
         if recreated:
             self._containers = await self._client.list_containers(self._endpoint_id)
             self._populate_table()
+
+    @work(exclusive=False)
+    async def action_pull_restart(self) -> None:
+        c = self._selected_container()
+        if not c:
+            return
+        confirmed = await self.app.push_screen_wait(
+            ConfirmDialog(
+                f"Pull latest image for [bold]{c.name}[/] and recreate the container?\n\n"
+                "The container will be briefly unavailable.",
+                title="Pull & Restart",
+            )
+        )
+        if not confirmed:
+            return
+        try:
+            inspect_data = await self._client.inspect_container(self._endpoint_id, c.id)
+            self.notify(f"Pulling {c.image}…", timeout=10)
+            await self._client.pull_image(self._endpoint_id, c.image)
+            self.notify("Image pulled — recreating container…", timeout=5)
+            await self._do_recreate(c, inspect_data)
+            self.notify(f"'{c.name}' restarted with latest image", timeout=4)
+            self._containers = await self._client.list_containers(self._endpoint_id)
+            self._populate_table()
+        except PortainerAPIError as e:
+            self.notify(str(e), severity="error")
+
+    async def _do_recreate(self, c: Container, inspect_data: dict) -> None:
+        """Stop → remove → create (same config) → start."""
+        client = self._client
+        eid = self._endpoint_id
+
+        cfg = inspect_data.get("Config", {})
+        host_cfg = inspect_data.get("HostConfig", {})
+        networks = list((inspect_data.get("NetworkSettings", {}).get("Networks") or {}).keys())
+        primary_net = networks[0] if networks else host_cfg.get("NetworkMode", "bridge")
+
+        if c.state.value == "running":
+            await client.stop_container(eid, c.id)
+        await client.remove_container(eid, c.id, force=True)
+
+        create_config: dict = {
+            "Image": cfg.get("Image", c.image),
+            "Cmd": cfg.get("Cmd"),
+            "Entrypoint": cfg.get("Entrypoint"),
+            "Env": cfg.get("Env"),
+            "ExposedPorts": cfg.get("ExposedPorts", {}),
+            "Labels": cfg.get("Labels", {}),
+            "WorkingDir": cfg.get("WorkingDir", ""),
+            "User": cfg.get("User", ""),
+            "Volumes": cfg.get("Volumes"),
+            "HostConfig": host_cfg,
+            "NetworkingConfig": {"EndpointsConfig": {primary_net: {}}},
+        }
+        create_config = {k: v for k, v in create_config.items() if v is not None}
+
+        net_mode = host_cfg.get("NetworkMode", "bridge")
+        new_id = await client.create_container(eid, c.name, create_config)
+        for net in networks:
+            if net and net != net_mode:
+                try:
+                    await client.connect_network(eid, net, new_id)
+                except PortainerAPIError:
+                    pass
+        await client.start_container(eid, new_id)
 
     @work(exclusive=False)
     async def action_start(self) -> None:

@@ -162,6 +162,21 @@ class PortainerClient:
             json_body={"Container": container_id, "Force": force},
         )
 
+    async def pull_image(self, endpoint_id: int, image_ref: str) -> None:
+        """Pull (or update) a Docker image on the endpoint.
+
+        ``image_ref`` may be ``"nginx:latest"``, ``"nginx"``, or a full
+        registry path.  The tag defaults to ``latest`` when omitted.
+        """
+        if ":" in image_ref and not image_ref.startswith("sha256:"):
+            name, tag = image_ref.rsplit(":", 1)
+        else:
+            name, tag = image_ref, "latest"
+        await self._post(
+            f"/endpoints/{endpoint_id}/docker/images/create",
+            params={"fromImage": name, "tag": tag},
+        )
+
     async def get_container_logs(
         self,
         endpoint_id: int,
@@ -201,6 +216,27 @@ class PortainerClient:
 
     async def remove_stack(self, stack_id: int, endpoint_id: int) -> None:
         await self._delete(f"/stacks/{stack_id}", params={"endpointId": endpoint_id})
+
+    async def redeploy_stack(
+        self,
+        stack_id: int,
+        endpoint_id: int,
+        pull_image: bool = True,
+    ) -> None:
+        """Re-deploy a stack, pulling latest images when *pull_image* is True."""
+        raw = await self._get(f"/stacks/{stack_id}")
+        file_content = await self.get_stack_file(stack_id)
+        payload: dict[str, Any] = {
+            "StackFileContent": file_content,
+            "Env": raw.get("Env") or [],
+            "Prune": False,
+            "PullImage": pull_image,
+        }
+        await self._put(
+            f"/stacks/{stack_id}",
+            params={"endpointId": endpoint_id},
+            json_body=payload,
+        )
 
     async def update_stack(
         self,

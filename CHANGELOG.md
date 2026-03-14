@@ -23,3 +23,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Confirmation dialogs for destructive actions
 - Full-screen log viewer with scroll-to-end
 - JSON detail viewer for inspect commands
+- Pull latest image and recreate container (`p` in Containers view)
+- Pull latest images and redeploy stack (`p` in Stacks view)

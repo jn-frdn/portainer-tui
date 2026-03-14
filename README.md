@@ -8,8 +8,8 @@ Manage Docker containers, stacks, volumes, networks, and images — entirely fro
 
 ## Features
 
-- **Containers** — list, start, stop, restart, remove, view logs, inspect JSON, edit config (ports, env, networks, restart policy)
-- **Stacks** — list, edit compose files with YAML syntax highlighting, remove
+- **Containers** — list, start, stop, restart, remove, view logs, inspect JSON, edit config (ports, env, networks, restart policy), pull latest image & restart
+- **Stacks** — list, edit compose files with YAML syntax highlighting, remove, pull latest images & redeploy
 - **Volumes** — list, inspect, remove
 - **Networks** — list, inspect, remove
 - **Images** — list, inspect, remove
@@ -176,6 +176,7 @@ Options:
 |---|---|
 | `r` | Refresh list |
 | `e` | **Edit** container (ports, env vars, networks, restart policy) |
+| `p` | **Pull & Restart** — pull latest image, then recreate container |
 | `s` | Start |
 | `S` | Stop |
 | `R` | Restart |
@@ -189,6 +190,7 @@ Options:
 |---|---|
 | `r` | Refresh list |
 | `e` | **Edit** stack compose file (YAML editor) |
+| `p` | **Pull & Redeploy** — pull latest images, then redeploy stack |
 | `i` | View stack file (read-only) |
 | `d` | Remove (with confirmation) |
 
