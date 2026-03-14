@@ -1,0 +1,249 @@
+/* ============================================================
+   Portainer TUI — Textual CSS Stylesheet
+   ============================================================ */
+
+/* ── App-level ─────────────────────────────────────────── */
+
+Screen {
+    background: $surface;
+    layout: vertical;
+}
+
+/* ── Header / tab bar ─────────────────────────────────── */
+
+#tab-bar {
+    height: 3;
+    background: $panel;
+    border-bottom: solid $accent;
+    layout: horizontal;
+    padding: 0 1;
+}
+
+.tab-btn {
+    width: auto;
+    min-width: 12;
+    height: 3;
+    background: $panel;
+    color: $text-muted;
+    border: none;
+    content-align: center middle;
+    padding: 0 2;
+}
+
+.tab-btn:hover {
+    background: $surface;
+    color: $text;
+}
+
+.tab-btn.active {
+    background: $accent;
+    color: $background;
+    text-style: bold;
+}
+
+/* ── Main content area ────────────────────────────────── */
+
+#content {
+    height: 1fr;
+}
+
+/* ── Data tables ─────────────────────────────────────── */
+
+DataTable {
+    height: 1fr;
+    border: solid $panel;
+}
+
+DataTable > .datatable--header {
+    background: $panel;
+    color: $accent;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: $accent 30%;
+    color: $text;
+}
+
+DataTable > .datatable--hover {
+    background: $surface-darken-1;
+}
+
+/* ── Status bar ─────────────────────────────────────── */
+
+#status-bar {
+    height: 1;
+    background: $panel;
+    layout: horizontal;
+    padding: 0 1;
+    dock: bottom;
+}
+
+#status-left {
+    width: 1fr;
+    color: $text-muted;
+    content-align: left middle;
+}
+
+#status-right {
+    width: auto;
+    color: $text-muted;
+    content-align: right middle;
+}
+
+#status-instance {
+    color: $accent;
+    text-style: bold;
+}
+
+/* ── Detail / log viewer ──────────────────────────────── */
+
+#detail-pane {
+    width: 60;
+    border-left: solid $panel;
+    background: $surface-darken-1;
+    display: none;
+}
+
+#detail-pane.visible {
+    display: block;
+}
+
+#detail-scroll {
+    height: 1fr;
+    padding: 1 2;
+}
+
+#detail-title {
+    height: 3;
+    padding: 1 2;
+    background: $panel;
+    color: $accent;
+    text-style: bold;
+    border-bottom: solid $accent;
+}
+
+/* ── Log viewer ──────────────────────────────────────── */
+
+LogViewer {
+    background: $background;
+    color: $text;
+    padding: 1 2;
+    height: 1fr;
+    overflow-y: auto;
+}
+
+/* ── Confirmation dialog ─────────────────────────────── */
+
+ConfirmDialog {
+    align: center middle;
+    background: $background 70%;
+}
+
+#confirm-box {
+    width: 50;
+    height: auto;
+    background: $panel;
+    border: solid $warning;
+    padding: 1 2;
+}
+
+#confirm-title {
+    text-style: bold;
+    color: $warning;
+    margin-bottom: 1;
+}
+
+#confirm-buttons {
+    layout: horizontal;
+    height: auto;
+    margin-top: 1;
+    align: right middle;
+}
+
+#confirm-yes {
+    background: $error;
+    color: $background;
+    margin-left: 1;
+}
+
+#confirm-no {
+    background: $panel-darken-2;
+    color: $text;
+}
+
+/* ── Container state colors ──────────────────────────── */
+
+.state-running {
+    color: $success;
+}
+
+.state-exited {
+    color: $error;
+}
+
+.state-paused {
+    color: $warning;
+}
+
+.state-restarting {
+    color: $accent;
+}
+
+/* ── Help overlay ───────────────────────────────────── */
+
+#help-overlay {
+    align: center middle;
+    background: $background 80%;
+}
+
+#help-box {
+    width: 60;
+    height: auto;
+    max-height: 80%;
+    background: $panel;
+    border: solid $accent;
+    padding: 1 2;
+    overflow-y: auto;
+}
+
+#help-title {
+    text-style: bold;
+    color: $accent;
+    text-align: center;
+    margin-bottom: 1;
+    border-bottom: solid $panel-darken-1;
+    padding-bottom: 1;
+}
+
+.help-row {
+    layout: horizontal;
+    height: auto;
+    margin: 0 0 0 0;
+}
+
+.help-key {
+    width: 20;
+    color: $accent;
+    text-style: bold;
+}
+
+.help-desc {
+    width: 1fr;
+    color: $text-muted;
+}
+
+/* ── Loading spinner ─────────────────────────────────── */
+
+#loading {
+    align: center middle;
+    height: 1fr;
+}
+
+/* ── Empty state ─────────────────────────────────────── */
+
+#empty-label {
+    align: center middle;
+    height: 1fr;
+    color: $text-muted;
+}
