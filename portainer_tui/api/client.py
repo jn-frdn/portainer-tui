@@ -214,6 +214,20 @@ class PortainerClient:
         data = await self._get(f"/stacks/{stack_id}/file")
         return data.get("StackFileContent", "")
 
+    async def create_stack(
+        self,
+        endpoint_id: int,
+        name: str,
+        compose_content: str,
+    ) -> Stack:
+        """Create a new Compose stack from a string."""
+        data = await self._post(
+            "/stacks",
+            params={"endpointId": endpoint_id, "method": "string", "type": 2},
+            json_body={"name": name, "stackFileContent": compose_content, "env": []},
+        )
+        return Stack.from_api(data)
+
     async def remove_stack(self, stack_id: int, endpoint_id: int) -> None:
         await self._delete(f"/stacks/{stack_id}", params={"endpointId": endpoint_id})
 

@@ -17,6 +17,7 @@ from portainer_tui.ui.screens.images import ImagesView
 from portainer_tui.ui.screens.networks import NetworksView
 from portainer_tui.ui.screens.stacks import StacksView
 from portainer_tui.ui.screens.volumes import VolumesView
+from portainer_tui.ui.widgets.sysmon import SystemMonitor
 
 
 _TABS = [
@@ -59,6 +60,7 @@ class PortainerApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
+        yield SystemMonitor()
         with TabbedContent(id="tabs"):
             for tab_id, tab_label in _TABS:
                 with TabPane(tab_label, id=tab_id):

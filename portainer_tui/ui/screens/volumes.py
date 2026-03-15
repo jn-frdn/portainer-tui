@@ -13,6 +13,9 @@ from portainer_tui.models.volume import Volume
 from portainer_tui.ui.widgets.confirm import ConfirmDialog
 
 
+_SORTABLE_COLS = {"name", "driver", "scope"}
+
+
 class VolumesView(Widget):
     """Lists all volumes on the selected endpoint."""
 
@@ -32,13 +35,20 @@ class VolumesView(Widget):
         self._client = client
         self._endpoint_id = endpoint_id
         self._volumes: list[Volume] = []
+        self._display_volumes: list[Volume] = []
+        self._sort_col: str | None = None
+        self._sort_rev: bool = False
 
     def compose(self) -> ComposeResult:
         yield LoadingIndicator(id="loading")
         table = DataTable(id="volumes-table", cursor_type="row")
-        table.add_columns("Name", "Driver", "Scope", "Mountpoint")
+        table.add_column("Name", key="name")
+        table.add_column("Driver", key="driver")
+        table.add_column("Scope", key="scope")
+        table.add_column("Mountpoint", key="mountpoint")
         table.display = False
         yield table
+        yield Label("", id="sort-label")
         yield Label("No volumes found.", id="empty-label")
 
     def on_mount(self) -> None:
@@ -55,6 +65,18 @@ class VolumesView(Widget):
         finally:
             self._set_loading(False)
 
+    def _get_sorted_volumes(self) -> list[Volume]:
+        if self._sort_col is None:
+            return list(self._volumes)
+        rev = self._sort_rev
+        if self._sort_col == "name":
+            return sorted(self._volumes, key=lambda v: v.name.lower(), reverse=rev)
+        if self._sort_col == "driver":
+            return sorted(self._volumes, key=lambda v: v.driver.lower(), reverse=rev)
+        if self._sort_col == "scope":
+            return sorted(self._volumes, key=lambda v: v.scope.lower(), reverse=rev)
+        return list(self._volumes)
+
     def _populate_table(self) -> None:
         table = self.query_one("#volumes-table", DataTable)
         empty = self.query_one("#empty-label", Label)
@@ -62,21 +84,43 @@ class VolumesView(Widget):
         if not self._volumes:
             table.display = False
             empty.display = True
+            self._update_sort_label()
             return
         table.display = True
         empty.display = False
-        for v in self._volumes:
+        self._display_volumes = self._get_sorted_volumes()
+        for v in self._display_volumes:
             table.add_row(v.name, v.driver, v.scope, v.mountpoint, key=v.name)
+        self._update_sort_label()
+
+    def _update_sort_label(self) -> None:
+        label = self.query_one("#sort-label", Label)
+        if self._sort_col is None:
+            label.update("")
+            return
+        arrow = "↓" if self._sort_rev else "↑"
+        label.update(f"[dim]Sorted by:[/] {self._sort_col.capitalize()} {arrow}")
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        col = event.column_key.value
+        if col not in _SORTABLE_COLS:
+            return
+        if self._sort_col == col:
+            self._sort_rev = not self._sort_rev
+        else:
+            self._sort_col = col
+            self._sort_rev = False
+        self._populate_table()
 
     def _set_loading(self, loading: bool) -> None:
         self.query_one("#loading", LoadingIndicator).display = loading
 
     def _selected_volume(self) -> Volume | None:
         table = self.query_one("#volumes-table", DataTable)
-        if table.cursor_row is None or not self._volumes:
+        if table.cursor_row is None or not self._display_volumes:
             return None
         try:
-            return self._volumes[table.cursor_row]
+            return self._display_volumes[table.cursor_row]
         except IndexError:
             return None
 

@@ -13,6 +13,9 @@ from portainer_tui.models.stack import Stack
 from portainer_tui.ui.widgets.confirm import ConfirmDialog
 
 
+_SORTABLE_COLS = {"id", "name", "type_label", "status_label"}
+
+
 class StacksView(Widget):
     """Lists all stacks for the selected endpoint."""
 
@@ -23,6 +26,7 @@ class StacksView(Widget):
 
     BINDINGS = [
         Binding("r", "refresh", "Refresh"),
+        Binding("n", "new_stack", "New"),
         Binding("e", "edit", "Edit"),
         Binding("p", "pull_restart", "Pull & Redeploy"),
         Binding("i", "inspect", "View file"),
@@ -34,13 +38,21 @@ class StacksView(Widget):
         self._client = client
         self._endpoint_id = endpoint_id
         self._stacks: list[Stack] = []
+        self._display_stacks: list[Stack] = []
+        self._sort_col: str | None = None
+        self._sort_rev: bool = False
 
     def compose(self) -> ComposeResult:
         yield LoadingIndicator(id="loading")
         table = DataTable(id="stacks-table", cursor_type="row")
-        table.add_columns("ID", "Name", "Type", "Status", "Created by")
+        table.add_column("ID", key="id")
+        table.add_column("Name", key="name")
+        table.add_column("Type", key="type_label")
+        table.add_column("Status", key="status_label")
+        table.add_column("Created by", key="created_by")
         table.display = False
         yield table
+        yield Label("", id="sort-label")
         yield Label("No stacks found.", id="empty-label")
 
     def on_mount(self) -> None:
@@ -57,6 +69,20 @@ class StacksView(Widget):
         finally:
             self._set_loading(False)
 
+    def _get_sorted_stacks(self) -> list[Stack]:
+        if self._sort_col is None:
+            return list(self._stacks)
+        rev = self._sort_rev
+        if self._sort_col == "id":
+            return sorted(self._stacks, key=lambda s: s.id, reverse=rev)
+        if self._sort_col == "name":
+            return sorted(self._stacks, key=lambda s: s.name.lower(), reverse=rev)
+        if self._sort_col == "type_label":
+            return sorted(self._stacks, key=lambda s: s.type_label.lower(), reverse=rev)
+        if self._sort_col == "status_label":
+            return sorted(self._stacks, key=lambda s: s.status_label.lower(), reverse=rev)
+        return list(self._stacks)
+
     def _populate_table(self) -> None:
         table = self.query_one("#stacks-table", DataTable)
         empty = self.query_one("#empty-label", Label)
@@ -64,10 +90,12 @@ class StacksView(Widget):
         if not self._stacks:
             table.display = False
             empty.display = True
+            self._update_sort_label()
             return
         table.display = True
         empty.display = False
-        for s in self._stacks:
+        self._display_stacks = self._get_sorted_stacks()
+        for s in self._display_stacks:
             status_markup = (
                 "[green]active[/]" if s.status_label == "active" else "[dim]inactive[/]"
             )
@@ -75,18 +103,50 @@ class StacksView(Widget):
                 str(s.id), s.name, s.type_label, status_markup, s.created_by,
                 key=str(s.id),
             )
+        self._update_sort_label()
+
+    def _update_sort_label(self) -> None:
+        label = self.query_one("#sort-label", Label)
+        if self._sort_col is None:
+            label.update("")
+            return
+        col_name = {"id": "ID", "name": "Name", "type_label": "Type", "status_label": "Status"}.get(
+            self._sort_col, self._sort_col.capitalize()
+        )
+        arrow = "↓" if self._sort_rev else "↑"
+        label.update(f"[dim]Sorted by:[/] {col_name} {arrow}")
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        col = event.column_key.value
+        if col not in _SORTABLE_COLS:
+            return
+        if self._sort_col == col:
+            self._sort_rev = not self._sort_rev
+        else:
+            self._sort_col = col
+            self._sort_rev = False
+        self._populate_table()
 
     def _set_loading(self, loading: bool) -> None:
         self.query_one("#loading", LoadingIndicator).display = loading
 
     def _selected_stack(self) -> Stack | None:
         table = self.query_one("#stacks-table", DataTable)
-        if table.cursor_row is None or not self._stacks:
+        if table.cursor_row is None or not self._display_stacks:
             return None
         try:
-            return self._stacks[table.cursor_row]
+            return self._display_stacks[table.cursor_row]
         except IndexError:
             return None
+
+    @work(exclusive=False)
+    async def action_new_stack(self) -> None:
+        from portainer_tui.ui.screens.create_stack import CreateStackScreen
+        created = await self.app.push_screen_wait(
+            CreateStackScreen(self._client, self._endpoint_id)
+        )
+        if created:
+            self.action_refresh()
 
     @work(exclusive=False)
     async def action_edit(self) -> None:

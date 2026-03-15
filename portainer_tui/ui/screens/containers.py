@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -24,6 +26,17 @@ _STATE_SYMBOLS = {
     ContainerState.REMOVING: "[red dim]✕[/]",
     ContainerState.UNKNOWN: "[dim]?[/]",
 }
+
+_SORTABLE_COLS = {"name", "image", "state", "stack", "age"}
+
+
+def _age(ts: int) -> str:
+    delta = int(time.time()) - ts
+    if delta < 3600:
+        return f"{delta // 60}m"
+    if delta < 86400:
+        return f"{delta // 3600}h"
+    return f"{delta // 86400}d"
 
 
 class ContainersView(Widget):
@@ -51,13 +64,24 @@ class ContainersView(Widget):
         self._client = client
         self._endpoint_id = endpoint_id
         self._containers: list[Container] = []
+        self._display_containers: list[Container] = []
+        self._sort_col: str | None = None
+        self._sort_rev: bool = False
 
     def compose(self) -> ComposeResult:
         yield LoadingIndicator(id="loading")
         table = DataTable(id="containers-table", cursor_type="row")
-        table.add_columns("", "Name", "Image", "State", "Status", "Ports")
+        table.add_column("", key="state_icon")
+        table.add_column("Name", key="name")
+        table.add_column("Image", key="image")
+        table.add_column("State", key="state")
+        table.add_column("Stack", key="stack")
+        table.add_column("Age", key="age")
+        table.add_column("Status", key="status")
+        table.add_column("Ports", key="ports")
         table.display = False
         yield table
+        yield Label("", id="sort-label")
         yield Label("No containers found.", id="empty-label")
 
     def on_mount(self) -> None:
@@ -75,6 +99,23 @@ class ContainersView(Widget):
         finally:
             self._set_loading(False)
 
+    def _get_sorted_containers(self) -> list[Container]:
+        if self._sort_col is None:
+            return list(self._containers)
+        rev = self._sort_rev
+        if self._sort_col == "name":
+            return sorted(self._containers, key=lambda c: c.name.lower(), reverse=rev)
+        if self._sort_col == "image":
+            return sorted(self._containers, key=lambda c: c.image.lower(), reverse=rev)
+        if self._sort_col == "state":
+            return sorted(self._containers, key=lambda c: c.state.value, reverse=rev)
+        if self._sort_col == "stack":
+            return sorted(self._containers, key=lambda c: (c.stack_name or "").lower(), reverse=rev)
+        if self._sort_col == "age":
+            # ascending (↑) = youngest first = highest created timestamp first
+            return sorted(self._containers, key=lambda c: c.created, reverse=not rev)
+        return list(self._containers)
+
     def _populate_table(self) -> None:
         table = self.query_one("#containers-table", DataTable)
         empty = self.query_one("#empty-label", Label)
@@ -82,29 +123,53 @@ class ContainersView(Widget):
         if not self._containers:
             table.display = False
             empty.display = True
+            self._update_sort_label()
             return
         table.display = True
         empty.display = False
-        for c in self._containers:
+        self._display_containers = self._get_sorted_containers()
+        for c in self._display_containers:
             table.add_row(
                 _STATE_SYMBOLS.get(c.state, "?"),
                 c.name,
                 c.image,
                 c.state.value,
+                c.stack_name or "—",
+                _age(c.created),
                 c.status,
                 c.port_summary,
                 key=c.id,
             )
+        self._update_sort_label()
+
+    def _update_sort_label(self) -> None:
+        label = self.query_one("#sort-label", Label)
+        if self._sort_col is None:
+            label.update("")
+            return
+        arrow = "↓" if self._sort_rev else "↑"
+        label.update(f"[dim]Sorted by:[/] {self._sort_col.capitalize()} {arrow}")
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        col = event.column_key.value
+        if col not in _SORTABLE_COLS:
+            return
+        if self._sort_col == col:
+            self._sort_rev = not self._sort_rev
+        else:
+            self._sort_col = col
+            self._sort_rev = False
+        self._populate_table()
 
     def _set_loading(self, loading: bool) -> None:
         self.query_one("#loading", LoadingIndicator).display = loading
 
     def _selected_container(self) -> Container | None:
         table = self.query_one("#containers-table", DataTable)
-        if table.cursor_row is None or not self._containers:
+        if table.cursor_row is None or not self._display_containers:
             return None
         try:
-            return self._containers[table.cursor_row]
+            return self._display_containers[table.cursor_row]
         except IndexError:
             return None
 
