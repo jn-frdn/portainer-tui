@@ -30,6 +30,7 @@ class Container:
     ports: list[dict] = field(default_factory=list)
     labels: dict[str, str] = field(default_factory=dict)
     stack_name: str = ""
+    volume_mounts: list[str] = field(default_factory=list)
 
     @classmethod
     def from_api(cls, data: dict) -> Container:
@@ -52,6 +53,11 @@ class Container:
             ports=data.get("Ports", []),
             labels=labels,
             stack_name=labels.get("com.docker.compose.project", ""),
+            volume_mounts=[
+                m["Name"]
+                for m in (data.get("Mounts") or [])
+                if m.get("Type") == "volume" and m.get("Name")
+            ],
         )
 
     @property

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -15,12 +17,9 @@ from portainer_tui.ui.widgets.confirm import ConfirmDialog
 
 _SORTABLE_COLS = {"name", "driver", "scope"}
 
-def _in_use_indicator(in_use: bool | None) -> str:
-    if in_use is True:
-        return "[green]●[/]"
-    if in_use is False:
-        return "[dim]○[/]"
-    return "[dim]?[/]"
+
+def _in_use_indicator(in_use: bool) -> str:
+    return "[green]●[/]" if in_use else "[dim]○[/]"
 
 
 class VolumesView(Widget):
@@ -44,6 +43,7 @@ class VolumesView(Widget):
         self._endpoint_id = endpoint_id
         self._volumes: list[Volume] = []
         self._display_volumes: list[Volume] = []
+        self._used_volume_names: set[str] = set()
         self._sort_col: str | None = None
         self._sort_rev: bool = False
 
@@ -67,7 +67,14 @@ class VolumesView(Widget):
     async def action_refresh(self) -> None:
         self._set_loading(True)
         try:
-            self._volumes = await self._client.list_volumes(self._endpoint_id)
+            volumes, containers = await asyncio.gather(
+                self._client.list_volumes(self._endpoint_id),
+                self._client.list_containers(self._endpoint_id, all_containers=True),
+            )
+            self._volumes = volumes
+            self._used_volume_names = {
+                name for c in containers for name in c.volume_mounts
+            }
             self._populate_table()
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
@@ -99,7 +106,14 @@ class VolumesView(Widget):
         empty.display = False
         self._display_volumes = self._get_sorted_volumes()
         for v in self._display_volumes:
-            table.add_row(v.name, _in_use_indicator(v.in_use), v.driver, v.scope, v.mountpoint, key=v.name)
+            table.add_row(
+                v.name,
+                _in_use_indicator(v.name in self._used_volume_names),
+                v.driver,
+                v.scope,
+                v.mountpoint,
+                key=v.name,
+            )
         self._update_sort_label()
 
     def _update_sort_label(self) -> None:
@@ -161,6 +175,7 @@ class VolumesView(Widget):
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
 
+    @work(exclusive=False)
     async def action_prune(self) -> None:
         confirmed = await self.app.push_screen_wait(
             ConfirmDialog("Remove all unused volumes?", title="Prune Volumes")

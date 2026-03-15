@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from textual import work
@@ -75,7 +76,6 @@ class ImagesView(Widget):
     async def action_refresh(self) -> None:
         self._set_loading(True)
         try:
-            import asyncio
             images, containers = await asyncio.gather(
                 self._client.list_images(self._endpoint_id),
                 self._client.list_containers(self._endpoint_id, all_containers=True),
@@ -186,6 +186,7 @@ class ImagesView(Widget):
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
 
+    @work(exclusive=False)
     async def action_prune(self) -> None:
         confirmed = await self.app.push_screen_wait(
             ConfirmDialog("Remove all unused images?", title="Prune Images")
