@@ -17,6 +17,9 @@ from portainer_tui.ui.widgets.confirm import ConfirmDialog
 
 _SORTABLE_COLS = {"tag", "size", "created"}
 
+def _in_use_indicator(in_use: bool) -> str:
+    return "[green]●[/]" if in_use else "[dim]○[/]"
+
 
 def _age(ts: int) -> str:
     delta = int(time.time()) - ts
@@ -39,6 +42,7 @@ class ImagesView(Widget):
         Binding("r", "refresh", "Refresh"),
         Binding("i", "inspect", "Inspect"),
         Binding("d", "remove", "Remove"),
+        Binding("D", "prune", "Delete Unused"),
     ]
 
     def __init__(self, client: PortainerClient, endpoint_id: int) -> None:
@@ -47,6 +51,7 @@ class ImagesView(Widget):
         self._endpoint_id = endpoint_id
         self._images: list[Image] = []
         self._display_images: list[Image] = []
+        self._used_image_ids: set[str] = set()
         self._sort_col: str | None = None
         self._sort_rev: bool = False
 
@@ -54,6 +59,7 @@ class ImagesView(Widget):
         yield LoadingIndicator(id="loading")
         table = DataTable(id="images-table", cursor_type="row")
         table.add_column("ID", key="id")
+        table.add_column("In Use", key="in_use")
         table.add_column("Tag", key="tag", width=60)
         table.add_column("Size", key="size")
         table.add_column("Age", key="created")
@@ -69,7 +75,13 @@ class ImagesView(Widget):
     async def action_refresh(self) -> None:
         self._set_loading(True)
         try:
-            self._images = await self._client.list_images(self._endpoint_id)
+            import asyncio
+            images, containers = await asyncio.gather(
+                self._client.list_images(self._endpoint_id),
+                self._client.list_containers(self._endpoint_id, all_containers=True),
+            )
+            self._images = images
+            self._used_image_ids = {c.image_id for c in containers}
             self._populate_table()
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
@@ -102,7 +114,14 @@ class ImagesView(Widget):
         empty.display = False
         self._display_images = self._get_sorted_images()
         for img in self._display_images:
-            table.add_row(img.short_id, img.tag, img.size_human, _age(img.created), key=img.id)
+            table.add_row(
+                img.short_id,
+                _in_use_indicator(img.id in self._used_image_ids),
+                img.tag,
+                img.size_human,
+                _age(img.created),
+                key=img.id,
+            )
         self._update_sort_label()
 
     def _update_sort_label(self) -> None:
@@ -163,6 +182,20 @@ class ImagesView(Widget):
         try:
             await self._client.remove_image(self._endpoint_id, img.id)
             self.notify(f"Removed image {img.tag}")
+            self.action_refresh()
+        except PortainerAPIError as e:
+            self.notify(str(e), severity="error")
+
+    async def action_prune(self) -> None:
+        confirmed = await self.app.push_screen_wait(
+            ConfirmDialog("Remove all unused images?", title="Prune Images")
+        )
+        if not confirmed:
+            return
+        try:
+            result = await self._client.prune_images(self._endpoint_id)
+            deleted = result.get("ImagesDeleted") or []
+            self.notify(f"Pruned {len(deleted)} image(s)")
             self.action_refresh()
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")

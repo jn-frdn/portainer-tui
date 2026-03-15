@@ -288,6 +288,9 @@ class PortainerClient:
     async def remove_volume(self, endpoint_id: int, volume_name: str) -> None:
         await self._delete(f"/endpoints/{endpoint_id}/docker/volumes/{volume_name}")
 
+    async def prune_volumes(self, endpoint_id: int) -> dict:
+        return await self._post(f"/endpoints/{endpoint_id}/docker/volumes/prune") or {}
+
     # ------------------------------------------------------------------
     # Networks
     # ------------------------------------------------------------------
@@ -326,6 +329,9 @@ class PortainerClient:
             f"/endpoints/{endpoint_id}/docker/images/{image_id}",
             params={"force": int(force)},
         )
+
+    async def prune_images(self, endpoint_id: int) -> dict:
+        return await self._post(f"/endpoints/{endpoint_id}/docker/images/prune") or {}
 
     # ------------------------------------------------------------------
     # Low-level helpers

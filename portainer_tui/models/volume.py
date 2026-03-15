@@ -14,9 +14,13 @@ class Volume:
     labels: dict[str, str] = field(default_factory=dict)
     options: dict[str, str] = field(default_factory=dict)
     created_at: str = ""
+    in_use: bool | None = None
 
     @classmethod
     def from_api(cls, data: dict) -> Volume:
+        usage = data.get("UsageData") or {}
+        ref_count = usage.get("RefCount")
+        in_use = (ref_count > 0) if ref_count is not None else None
         return cls(
             name=data["Name"],
             driver=data.get("Driver", "local"),
@@ -25,4 +29,5 @@ class Volume:
             labels=data.get("Labels") or {},
             options=data.get("Options") or {},
             created_at=data.get("CreatedAt", ""),
+            in_use=in_use,
         )

@@ -15,6 +15,13 @@ from portainer_tui.ui.widgets.confirm import ConfirmDialog
 
 _SORTABLE_COLS = {"name", "driver", "scope"}
 
+def _in_use_indicator(in_use: bool | None) -> str:
+    if in_use is True:
+        return "[green]●[/]"
+    if in_use is False:
+        return "[dim]○[/]"
+    return "[dim]?[/]"
+
 
 class VolumesView(Widget):
     """Lists all volumes on the selected endpoint."""
@@ -28,6 +35,7 @@ class VolumesView(Widget):
         Binding("r", "refresh", "Refresh"),
         Binding("i", "inspect", "Inspect"),
         Binding("d", "remove", "Remove"),
+        Binding("D", "prune", "Delete Unused"),
     ]
 
     def __init__(self, client: PortainerClient, endpoint_id: int) -> None:
@@ -43,6 +51,7 @@ class VolumesView(Widget):
         yield LoadingIndicator(id="loading")
         table = DataTable(id="volumes-table", cursor_type="row")
         table.add_column("Name", key="name")
+        table.add_column("In Use", key="in_use")
         table.add_column("Driver", key="driver")
         table.add_column("Scope", key="scope")
         table.add_column("Mountpoint", key="mountpoint")
@@ -90,7 +99,7 @@ class VolumesView(Widget):
         empty.display = False
         self._display_volumes = self._get_sorted_volumes()
         for v in self._display_volumes:
-            table.add_row(v.name, v.driver, v.scope, v.mountpoint, key=v.name)
+            table.add_row(v.name, _in_use_indicator(v.in_use), v.driver, v.scope, v.mountpoint, key=v.name)
         self._update_sort_label()
 
     def _update_sort_label(self) -> None:
@@ -148,6 +157,20 @@ class VolumesView(Widget):
         try:
             await self._client.remove_volume(self._endpoint_id, v.name)
             self.notify(f"Removed volume {v.name}")
+            self.action_refresh()
+        except PortainerAPIError as e:
+            self.notify(str(e), severity="error")
+
+    async def action_prune(self) -> None:
+        confirmed = await self.app.push_screen_wait(
+            ConfirmDialog("Remove all unused volumes?", title="Prune Volumes")
+        )
+        if not confirmed:
+            return
+        try:
+            result = await self._client.prune_volumes(self._endpoint_id)
+            deleted = result.get("VolumesDeleted") or []
+            self.notify(f"Pruned {len(deleted)} volume(s)")
             self.action_refresh()
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
