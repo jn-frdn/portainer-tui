@@ -318,6 +318,7 @@ class ContainersView(Widget):
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
 
+    @work(exclusive=False)
     async def action_remove(self) -> None:
         c = self._selected_container()
         if not c:

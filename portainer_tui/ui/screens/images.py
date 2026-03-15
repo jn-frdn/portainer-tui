@@ -170,6 +170,7 @@ class ImagesView(Widget):
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
 
+    @work(exclusive=False)
     async def action_remove(self) -> None:
         img = self._selected_image()
         if not img:

@@ -159,6 +159,7 @@ class VolumesView(Widget):
         except PortainerAPIError as e:
             self.notify(str(e), severity="error")
 
+    @work(exclusive=False)
     async def action_remove(self) -> None:
         v = self._selected_volume()
         if not v:
