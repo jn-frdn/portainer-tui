@@ -21,20 +21,7 @@ Manage Docker containers, stacks, volumes, networks, and images — entirely fro
 
 ## Screenshot
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Portainer TUI          instance: prod  |  endpoint: local   │
-├──────────┬──────────┬──────────┬──────────┬────────────────┤
-│Containers│  Stacks  │ Volumes  │ Networks │     Images     │
-├──┬───────────────┬──────────────┬─────────┬────────┬───────┤
-│  │ Name          │ Image        │ State   │ Status │ Ports │
-├──┼───────────────┼──────────────┼─────────┼────────┼───────┤
-│● │ nginx         │ nginx:latest │ running │ Up 2d  │ 80→80 │
-│● │ postgres      │ postgres:16  │ running │ Up 2d  │       │
-│● │ redis         │ redis:7      │ exited  │ Exited │       │
-└──┴───────────────┴──────────────┴─────────┴────────┴───────┘
- e Edit  s Start  S Stop  R Restart  l Logs  i Inspect  d Del
-```
+<img width="3014" height="1776" alt="Image" src="https://github.com/user-attachments/assets/6fbccdfe-13be-433d-ba82-fd49adb38b43" />
 
 ---
 
