@@ -73,7 +73,7 @@ class ContainersView(Widget):
         table = DataTable(id="containers-table", cursor_type="row")
         table.add_column("", key="state_icon")
         table.add_column("Name", key="name")
-        table.add_column("Image", key="image")
+        table.add_column("Image", key="image", width=40)
         table.add_column("State", key="state")
         table.add_column("Stack", key="stack")
         table.add_column("Age", key="age")

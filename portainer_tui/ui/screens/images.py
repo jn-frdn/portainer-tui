@@ -54,7 +54,7 @@ class ImagesView(Widget):
         yield LoadingIndicator(id="loading")
         table = DataTable(id="images-table", cursor_type="row")
         table.add_column("ID", key="id")
-        table.add_column("Tag", key="tag")
+        table.add_column("Tag", key="tag", width=60)
         table.add_column("Size", key="size")
         table.add_column("Age", key="created")
         table.display = False
